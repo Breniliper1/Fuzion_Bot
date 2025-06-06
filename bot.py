@@ -12,12 +12,7 @@ Consulta The Odds API para apostas de valor
 
 Envia alertas a usuários ativos """
 
-
-────────────────────────────────
-
 Variáveis de ambiente (Render)
-
-────────────────────────────────
 
 TOKEN        = os.environ.get("BOT_TOKEN")       # token do Telegram ODDS_API_KEY = os.environ.get("ODDS_API_KEY")    # key da The Odds API URL_WEBHOOK  = os.environ.get("WEBHOOK_URL")     # https://<service>.onrender.com/webhook
 
@@ -25,19 +20,11 @@ Validação simples para evitar falhas silenciosas
 
 for var, value in {"BOT_TOKEN": TOKEN, "ODDS_API_KEY": ODDS_API_KEY, "WEBHOOK_URL": URL_WEBHOOK}.items(): if not value: raise RuntimeError(f"Variável de ambiente obrigatória não definida: {var}")
 
-────────────────────────────────
-
 Banco de dados SQLite (efêmero)
-
-────────────────────────────────
 
 os.makedirs("db", exist_ok=True) conn   = sqlite3.connect("db/users.db", check_same_thread=False) cursor = conn.cursor() cursor.execute( """ CREATE TABLE IF NOT EXISTS users ( telegram_id     TEXT PRIMARY KEY, nome            TEXT, data_expiracao  INTEGER ) """ ) conn.commit()
 
-────────────────────────────────
-
 Bot Telegram
-
-────────────────────────────────
 
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 
