@@ -1,0 +1,4 @@
+TOKEN_TELEGRAM=seu_token_telegram_aqui
+URL_WEBHOOK=https://seu-dominio.com/webhook
+API_ODDS_KEY=sua_chave_da_odds_api_aqui
+PORT=10000
