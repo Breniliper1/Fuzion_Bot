@@ -66,11 +66,7 @@ for esporte in esportes:
                 )
                 enviar_alerta_para_ativos(mensagem)
 
-────────────────────────────────
-
 Flask Webhook
-
-────────────────────────────────
 
 app = Flask(name)
 
@@ -80,11 +76,7 @@ app = Flask(name)
 
 @app.before_first_request def activate_webhook(): bot.remove_webhook() bot.set_webhook(URL_WEBHOOK)
 
-────────────────────────────────
-
 Execução local/Render
-
-────────────────────────────────
 
 if name == "main": # Loop em thread paralela para consultas à The Odds API def loop_apostas(): while True: try: verificar_apostas_valiosas() except Exception: pass time.sleep(300)  # 5 min
 
