@@ -116,7 +116,7 @@ def webhook():
         abort(500)
     return "OK", 200
 
-@app.before_first_request
+@app._got_first_request
 def ativar_webhook():
     logger.info("Configurando webhook...")
     bot.remove_webhook()
