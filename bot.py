@@ -6,132 +6,141 @@ import requests
 import telebot
 from flask import Flask, request, abort
 
-# Configurações via variáveis de ambiente
+# -------------------- CONFIGURAÇÕES VIA VARIÁVEL DE AMBIENTE --------------------
 TOKEN_TELEGRAM = os.getenv("TOKEN_TELEGRAM")
-URL_WEBHOOK = os.getenv("URL_WEBHOOK")
-API_ODDS_KEY = os.getenv("API_ODDS_KEY")
-PORT = int(os.getenv("PORT", 10000))
+URL_WEBHOOK   = os.getenv("URL_WEBHOOK")
+API_ODDS_KEY  = os.getenv("API_ODDS_KEY")
+PORT          = int(os.getenv("PORT", 10000))
 
-# Configuração do logger
-logging.basicConfig(
-    level=logging.INFO,
-    format="[%(asctime)s] %(levelname)s - %(message)s"
-)
-logger = logging.getLogger()
+if not TOKEN_TELEGRAM:
+    raise RuntimeError("A variável de ambiente TOKEN_TELEGRAM não está definida.")
 
-# Instanciando bot e app Flask
-bot = telebot.TeleBot(TOKEN_TELEGRAM, parse_mode="HTML")
+# -------------------- LOGGING --------------------
+logging.basicConfig(level=logging.INFO,
+                    format='[%(asctime)s] %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+# -------------------- INSTÂNCIAS --------------------
+bot = telebot.TeleBot(TOKEN_TELEGRAM, parse_mode='HTML')
 app = Flask(__name__)
 
-# Armazena os usuários ativos que enviaram /start (em memória)
-usuarios_ativos = set()
+# Armazena IDs de chat dos usuários que enviaram /start (não persiste entre reinícios)
+usuarios_ativos: set[int] = set()
 
-@bot.message_handler(commands=["start"])
-def registrar_usuario(message):
+# -------------------- HANDLERS TELEGRAM --------------------
+@bot.message_handler(commands=['start'])
+def cmd_start(message: telebot.types.Message):
     chat_id = message.chat.id
-    usuarios_ativos.add(chat_id)
-    bot.send_message(chat_id, "Olá! Você está registrado para receber alertas de apostas valiosas.")
+    if chat_id not in usuarios_ativos:
+        usuarios_ativos.add(chat_id)
+    bot.send_message(chat_id,
+                     '✅ Você está inscrito para receber alertas de apostas valiosas.')
 
+# -------------------- LÓGICA DE NEGÓCIO --------------------
 def obter_eventos() -> list:
-    """Consulta eventos da The Odds API."""
-    url = "https://api.the-odds-api.com/v4/sports/soccer_epl/odds"
+    """Consulta a The Odds API por odds de partidas da Premier League."""
+    if not API_ODDS_KEY:
+        logger.warning("API_ODDS_KEY não definida; retornando lista vazia.")
+        return []
+    url = 'https://api.the-odds-api.com/v4/sports/soccer_epl/odds'
     params = {
-        "apiKey": API_ODDS_KEY,
-        "regions": "eu",
-        "markets": "h2h",
-        "oddsFormat": "decimal"
+        'apiKey': API_ODDS_KEY,
+        'regions': 'eu',
+        'markets': 'h2h',
+        'oddsFormat': 'decimal'
     }
     try:
         resposta = requests.get(url, params=params, timeout=10)
         resposta.raise_for_status()
-        eventos = resposta.json()
-        return eventos
-    except requests.RequestException as e:
-        logger.error(f"Erro ao obter eventos: {e}")
+        return resposta.json()
+    except requests.RequestException as exc:
+        logger.error(f'Erro ao obter eventos: {exc}')
         return []
 
 def calcular_valor(odd_1: float, odd_2: float) -> float:
-    """Calcula o valor estimado da aposta."""
+    """Retorna valor estimado; >1 indica valor positivo."""
     try:
         prob_1 = 1 / odd_1
         prob_2 = 1 / odd_2
         margem = prob_1 + prob_2
         return 1 / margem
     except ZeroDivisionError:
-        logger.error("Divisão por zero no cálculo de valor.")
-        return 0
+        return 0.0
 
-def enviar_alerta_para_ativos(mensagem: str) -> None:
-    """Envia mensagem para todos os usuários ativos."""
-    for chat_id in usuarios_ativos:
+def enviar_alerta(mensagem: str) -> None:
+    for chat_id in list(usuarios_ativos):
         try:
             bot.send_message(chat_id, mensagem)
-        except Exception as e:
-            logger.error(f"Erro ao enviar mensagem para {chat_id}: {e}")
+        except Exception as exc:
+            logger.error(f'Falha ao enviar mensagem para {chat_id}: {exc}')
 
 def verificar_apostas_valiosas() -> None:
     eventos = obter_eventos()
     if not eventos:
-        logger.info("Nenhum evento encontrado.")
+        logger.info('Nenhum evento recebido.')
         return
 
     for evento in eventos:
-        for casa in evento.get("bookmakers", []):
-            mercados = casa.get("markets", [])
-            if not mercados:
+        for casa in evento.get('bookmakers', []):
+            markets = casa.get('markets', [])
+            if not markets:
                 continue
-            odds = mercados[0].get("outcomes", [])
-            if len(odds) < 2:
-                continue
-
-            odd_casa = odds[0].get("price")
-            odd_fora = odds[1].get("price")
-
-            if odd_casa is None or odd_fora is None:
+            outcomes = markets[0].get('outcomes', [])
+            if len(outcomes) < 2:
                 continue
 
-            valor_estimado = calcular_valor(odd_casa, odd_fora)
+            odd_casa = outcomes[0].get('price')
+            odd_fora = outcomes[1].get('price')
+            if not isinstance(odd_casa, (int, float)) or not isinstance(odd_fora, (int, float)):
+                continue
 
-            if valor_estimado >= 1.1:
+            valor = calcular_valor(odd_casa, odd_fora)
+            if valor >= 1.1:
                 mensagem = (
                     f"⚽ <b>Jogo:</b> {evento.get('home_team')} x {evento.get('away_team')}\n"
-                    f"📊 <b>Odds:</b> Casa {odd_casa} | Fora {odd_fora}\n"
-                    f"📈 <b>Valor estimado:</b> {valor_estimado:.2f}"
+                    f"📊 <b>Odds:</b> Casa {odd_casa} · Fora {odd_fora}\n"
+                    f"💸 <b>Valor estimado:</b> {valor:.2f}"
                 )
-                enviar_alerta_para_ativos(mensagem)
+                enviar_alerta(mensagem)
 
-@app.route("/", methods=["GET"])
-def pagina_inicial():
-    return "Futzion Bot Online!", 200
+# -------------------- FLASK / WEBHOOK --------------------
+@app.route('/', methods=['GET'])
+def status():
+    return 'Futzion Bot Online!', 200
 
-@app.route("/webhook", methods=["POST"])
-def webhook():
-    if request.headers.get("content-type") != "application/json":
+@app.route('/webhook', methods=['POST'])
+def telegram_webhook():
+    if request.headers.get('content-type') != 'application/json':
         abort(400)
     try:
-        update = telebot.types.Update.de_json(request.data.decode("utf-8"))
+        update = telebot.types.Update.de_json(request.data.decode('utf-8'))
         bot.process_new_updates([update])
-    except Exception as e:
-        logger.error(f"Erro ao processar webhook: {e}")
+    except Exception as exc:
+        logger.error(f'Erro webhook: {exc}')
         abort(500)
-    return "OK", 200
+    return 'OK', 200
 
-@app._got_first_request
-def ativar_webhook():
-    logger.info("Configurando webhook...")
+@app.before_first_request
+def setup_webhook():
+    logger.info('Configurando webhook…')
     bot.remove_webhook()
-    bot.set_webhook(URL_WEBHOOK)
-    logger.info(f"Webhook definido em: {URL_WEBHOOK}")
+    if URL_WEBHOOK:
+        bot.set_webhook(URL_WEBHOOK)
+        logger.info('Webhook configurado.')
+    else:
+        logger.warning('URL_WEBHOOK não definida; webhook não será registrado.')
 
-def loop_verificacao():
-    logger.info("Thread de verificação iniciada.")
+# -------------------- LOOP DE VERIFICAÇÃO EM THREAD --------------------
+def loop_apostas():
+    logger.info('Thread de verificação de apostas iniciada.')
     while True:
         try:
             verificar_apostas_valiosas()
-        except Exception as e:
-            logger.error(f"Erro no loop de verificação: {e}")
-        time.sleep(300)  # pausa de 5 minutos
+        except Exception as exc:
+            logger.error(f'Erro no loop de apostas: {exc}')
+        time.sleep(300)
 
-if __name__ == "__main__":
-    Thread(target=loop_verificacao, daemon=True).start()
-    app.run(host="0.0.0.0", port=PORT)
+# -------------------- MAIN --------------------
+if __name__ == '__main__':
+    Thread(target=loop_apostas, daemon=True).start()
+    app.run(host='0.0.0.0', port=PORT)
