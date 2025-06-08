@@ -91,9 +91,9 @@ def verificar_apostas_valiosas():
             valor = calcular_valor(odd_casa, odd_fora)
             if valor >= 1.1:
                 mensagem = (
-                    f"⚽ <b>Jogo:</b> {evento.get('home_team')} x {evento.get('away_team')}"
+                    f"⚽ <b>Jogo:</b> {evento.get('home_team')} x {evento.get('away_team')}
 "
-                    f"📊 <b>Odds:</b> Casa {odd_casa} · Fora {odd_fora}"
+                    f"📊 <b>Odds:</b> Casa {odd_casa} · Fora {odd_fora}
 "
                     f"💸 <b>Valor estimado:</b> {valor:.2f}"
                 )
@@ -116,7 +116,7 @@ def telegram_webhook():
         abort(500)
     return 'OK', 200
 
-@app.before_first_request
+@'_got_first_request'
 def setup_webhook():
     logger.info('Configurando webhook…')
     bot.remove_webhook()
