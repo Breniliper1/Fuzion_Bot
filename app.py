@@ -91,10 +91,8 @@ def verificar_apostas_valiosas():
             valor = calcular_valor(odd_casa, odd_fora)
             if valor >= 1.1:
                 mensagem = (
-                    f"⚽ <b>Jogo:</b> {evento.get('home_team')} x {evento.get('away_team')}"
-
-                    f"📊 <b>Odds:</b> Casa {odd_casa} · Fora {odd_fora}"
-
+                    f"⚽ <b>Jogo:</b> {evento.get('home_team')} x {evento.get('away_team')}\n"
+                    f"📊 <b>Odds:</b> Casa {odd_casa} · Fora {odd_fora}\n"
                     f"💸 <b>Valor estimado:</b> {valor:.2f}"
                 )
                 enviar_alerta(mensagem)
@@ -116,16 +114,6 @@ def telegram_webhook():
         abort(500)
     return 'OK', 200
 
-@app.before_first_request
-def setup_webhook():
-    logger.info('Configurando webhook…')
-    bot.remove_webhook()
-    if URL_WEBHOOK:
-        bot.set_webhook(URL_WEBHOOK)
-        logger.info('Webhook configurado.')
-    else:
-        logger.warning('URL_WEBHOOK não definida; webhook não será registrado.')
-
 # -------------------- LOOP DE VERIFICAÇÃO EM THREAD --------------------
 def loop_apostas():
     logger.info('Thread de verificação de apostas iniciada.')
@@ -136,7 +124,18 @@ def loop_apostas():
             logger.error(f'Erro no loop de apostas: {exc}')
         time.sleep(300)
 
+# -------------------- WEBHOOK SETUP --------------------
+def setup_webhook():
+    logger.info('Configurando webhook…')
+    bot.remove_webhook()
+    if URL_WEBHOOK:
+        bot.set_webhook(URL_WEBHOOK)
+        logger.info('Webhook configurado.')
+    else:
+        logger.warning('URL_WEBHOOK não definida; webhook não será registrado.')
+
 # -------------------- MAIN --------------------
 if __name__ == '__main__':
+    setup_webhook()  # Agora chamada diretamente, fora de decorador
     Thread(target=loop_apostas, daemon=True).start()
     app.run(host='0.0.0.0', port=PORT)
