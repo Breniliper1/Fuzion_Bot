@@ -116,7 +116,7 @@ def telegram_webhook():
         abort(500)
     return 'OK', 200
 
-@'_got_first_request'
+@app.before_first_request
 def setup_webhook():
     logger.info('Configurando webhook…')
     bot.remove_webhook()
