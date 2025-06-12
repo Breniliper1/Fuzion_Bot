@@ -139,3 +139,7 @@ if __name__ == '__main__':
     setup_webhook()  # Agora chamada diretamente, fora de decorador
     Thread(target=loop_apostas, daemon=True).start()
     app.run(host='0.0.0.0', port=PORT)
+
+@bot.message_handler(func=lambda m: True)
+def reply_all(message):
+    bot.send_message(message.chat.id, "👋 Estou online!")
