@@ -1,4 +1,2 @@
-Flask>=3.0.0,<4.0.0
-pyTelegramBotAPI>=4.14.0
-requests>=2.31.0
-gunicorn>=21.2.0  # Opcional, útil para produção em servidores como Render, Heroku etc.
+python-telegram-bot==20.3
+flask
