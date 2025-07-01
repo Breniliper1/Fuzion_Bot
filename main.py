@@ -9,7 +9,7 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 # /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_first_name = update.effective_user.first_name
-    msg = f"👋 Olá {user_first_name}!
+    msg = f"👋 Olá {user_first_name}!"
 \nSou o Futzion_Bot, seu assistente de previsões de futebol.\n\nEsta é a versão de testes.\nUse /previsao para ver um exemplo."
     await update.message.reply_text(msg)
 
